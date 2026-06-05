@@ -1,0 +1,35 @@
+{
+  "kind": "collectionType",
+  "collectionName": "gym_sessions",
+  "info": {
+    "singularName": "gym-session",
+    "pluralName": "gym-sessions",
+    "displayName": "GymSession"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "day": {
+      "type": "enumeration",
+      "enum": [
+        "monday",
+        "wednesday",
+        "friday"
+      ]
+    },
+    "week": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::week.week",
+      "inversedBy": "gym_sessions"
+    },
+    "exercise_blocks": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::exercise-block.exercise-block",
+      "mappedBy": "gym_session"
+    }
+  }
+}

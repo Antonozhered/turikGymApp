@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "weeks",
+  "info": {
+    "singularName": "week",
+    "pluralName": "weeks",
+    "displayName": "Week"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "start_date": {
+      "type": "date",
+      "required": true
+    },
+    "is_active": {
+      "type": "boolean"
+    },
+    "gym_sessions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::gym-session.gym-session",
+      "mappedBy": "week"
+    }
+  }
+}

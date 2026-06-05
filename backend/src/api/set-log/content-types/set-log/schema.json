@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "set_logs",
+  "info": {
+    "singularName": "set-log",
+    "pluralName": "set-logs",
+    "displayName": "SetLog"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "set_index": {
+      "type": "integer"
+    },
+    "actual_kg": {
+      "type": "decimal"
+    },
+    "actual_reps": {
+      "type": "decimal"
+    },
+    "rpe": {
+      "type": "decimal"
+    },
+    "notes": {
+      "type": "text"
+    },
+    "exercise_block": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::exercise-block.exercise-block",
+      "inversedBy": "set_logs"
+    }
+  }
+}

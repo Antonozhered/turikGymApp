@@ -1,0 +1,43 @@
+{
+  "kind": "collectionType",
+  "collectionName": "exercises",
+  "info": {
+    "singularName": "exercise",
+    "pluralName": "exercises",
+    "displayName": "Exercise"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "category": {
+      "type": "enumeration",
+      "enum": [
+        "sbd_main",
+        "sbd_variation",
+        "accessory"
+      ]
+    },
+    "movement": {
+      "type": "enumeration",
+      "enum": [
+        "squat",
+        "bench",
+        "deadlift",
+        "other"
+      ]
+    },
+    "exercise_blocks": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::exercise-block.exercise-block",
+      "mappedBy": "exercise"
+    }
+  }
+}

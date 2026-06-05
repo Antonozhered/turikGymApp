@@ -1,0 +1,45 @@
+{
+  "kind": "collectionType",
+  "collectionName": "exercise_blocks",
+  "info": {
+    "singularName": "exercise-block",
+    "pluralName": "exercise-blocks",
+    "displayName": "ExerciseBlock"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "prescribed_sets": {
+      "type": "json"
+    },
+    "superset_group": {
+      "type": "string"
+    },
+    "order": {
+      "type": "integer"
+    },
+    "notes": {
+      "type": "text"
+    },
+    "exercise": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::exercise.exercise",
+      "inversedBy": "exercise_blocks"
+    },
+    "gym_session": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::gym-session.gym-session",
+      "inversedBy": "exercise_blocks"
+    },
+    "set_logs": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::set-log.set-log",
+      "mappedBy": "exercise_block"
+    }
+  }
+}
