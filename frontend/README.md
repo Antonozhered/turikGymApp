@@ -1,1 +1,0 @@
-Vanilla Js and html goes here
