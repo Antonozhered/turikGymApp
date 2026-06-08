@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Turik</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+        <span class="topbar__logo">TURIK</span>
+        <div class="topbar__week">
+            <button class="week-nav" id="prevWeek">&#8592;</button>
+            <span class="week-label" id="weekLabel">Week of Jun 2</span>
+            <button class="week-nav" id="nextWeek">&#8594;</button>
+        </div>
+        <button class="mode-toggle" id="modeToggle">COACH</button>
+    </header>
+
+    <!-- DAY TABS -->
+    <nav class="day-tabs">
+        <button class="day-tab active" data-day="monday">MON</button>
+        <button class="day-tab" data-day="wednesday">WED</button>
+        <button class="day-tab" data-day="friday">FRI</button>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main id="app">
+
+        <!-- ATHLETE VIEW — SESSION -->
+        <section class="session" id="athleteView">
+
+            <!-- SBD MAIN LIFT -->
+            <div class="exercise-block sbd">
+                <div class="exercise-header">
+                    <div class="exercise-badge squat">S</div>
+                    <div class="exercise-meta">
+                        <h2 class="exercise-name">Squat</h2>
+                        <span class="exercise-sub">Back Squat · SBD Main</span>
+                    </div>
+                    <div class="exercise-total">5 sets</div>
+                </div>
+
+                <div class="sets-list">
+
+                    <!-- COMPLETED SET -->
+                    <div class="set-row completed">
+                        <span class="set-num">1</span>
+                        <div class="set-values">
+                            <span class="set-val">20 kg</span>
+                            <span class="set-sep">×</span>
+                            <span class="set-val">12</span>
+                        </div>
+                        <span class="set-rpe">—</span>
+                        <button class="set-check checked" aria-label="Set done">✓</button>
+                    </div>
+
+                    <!-- ACTIVE SET (current) -->
+                    <div class="set-row active">
+                        <span class="set-num">2</span>
+                        <div class="set-values">
+                            <span class="set-val">40 kg</span>
+                            <span class="set-sep">×</span>
+                            <span class="set-val">8</span>
+                        </div>
+                        <span class="set-rpe">—</span>
+                        <button class="set-check" aria-label="Mark set done">○</button>
+                    </div>
+
+                    <!-- DEVIATED SET -->
+                    <div class="set-row deviated">
+                        <span class="set-num">3</span>
+                        <div class="set-values">
+                            <span class="set-val actual-val">35 kg</span>
+                            <span class="set-sep">×</span>
+                            <span class="set-val actual-val">6</span>
+                            <span class="set-prescribed">(40×8)</span>
+                        </div>
+                        <span class="set-rpe rpe-val">8</span>
+                        <button class="set-check checked" aria-label="Set done">✓</button>
+                    </div>
+
+                    <!-- PENDING SET -->
+                    <div class="set-row pending">
+                        <span class="set-num">4</span>
+                        <div class="set-values">
+                            <span class="set-val pending-val">60 kg</span>
+                            <span class="set-sep">×</span>
+                            <span class="set-val pending-val">4</span>
+                        </div>
+                        <span class="set-rpe">—</span>
+                        <button class="set-check" aria-label="Mark set done">○</button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ACCESSORY -->
+            <div class="exercise-block accessory">
+                <div class="exercise-header">
+                    <div class="exercise-badge other">A</div>
+                    <div class="exercise-meta">
+                        <h2 class="exercise-name">Romanian Deadlift</h2>
+                        <span class="exercise-sub">Accessory · Deadlift</span>
+                    </div>
+                    <div class="exercise-total">2 sets</div>
+                </div>
+                <div class="sets-list">
+                    <div class="set-row pending">
+                        <span class="set-num">1</span>
+                        <div class="set-values">
+                            <span class="set-val pending-val">— kg</span>
+                            <span class="set-sep">×</span>
+                            <span class="set-val pending-val">15</span>
+                        </div>
+                        <span class="set-rpe">—</span>
+                        <button class="set-check" aria-label="Mark set done">○</button>
+                    </div>
+                    <div class="set-row pending">
+                        <span class="set-num">2</span>
+                        <div class="set-values">
+                            <span class="set-val pending-val">— kg</span>
+                            <span class="set-sep">×</span>
+                            <span class="set-val pending-val">15</span>
+                        </div>
+                        <span class="set-rpe">—</span>
+                        <button class="set-check" aria-label="Mark set done">○</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUPERSET -->
+            <div class="exercise-block accessory superset-block">
+                <div class="superset-label">SUPERSET A</div>
+                <div class="exercise-header">
+                    <div class="exercise-badge other">A</div>
+                    <div class="exercise-meta">
+                        <h2 class="exercise-name">Leg Curl</h2>
+                        <span class="exercise-sub">Accessory</span>
+                    </div>
+                </div>
+                <div class="exercise-header" style="margin-top: 6px;">
+                    <div class="exercise-badge other">A</div>
+                    <div class="exercise-meta">
+                        <h2 class="exercise-name">Leg Extension</h2>
+                        <span class="exercise-sub">Accessory · 10s hold at end</span>
+                    </div>
+                </div>
+                <div class="sets-list" style="margin-top:12px">
+                    <div class="set-row pending">
+                        <span class="set-num">1</span>
+                        <div class="set-values">
+                            <span class="set-val pending-val">— kg</span>
+                            <span class="set-sep">×</span>
+                            <span class="set-val pending-val">10+10</span>
+                        </div>
+                        <span class="set-rpe">—</span>
+                        <button class="set-check">○</button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- INLINE EDIT DRAWER (hidden by default) -->
+    <div class="edit-drawer" id="editDrawer">
+        <div class="edit-drawer__handle"></div>
+        <p class="edit-drawer__title">Set 2 · Squat</p>
+        <div class="edit-fields">
+            <div class="edit-field">
+                <label>KG</label>
+                <input type="number" inputmode="decimal" data-field="kg" value="" />
+            </div>
+            <div class="edit-field">
+                <label>REPS</label>
+                <input type="number" inputmode="numeric" data-field="reps" value="" />
+            </div>
+            <div class="edit-field">
+                <label>RPE</label>
+                <input type="number" inputmode="decimal" data-field="rpe" placeholder="—" step="0.5" min="1" max="10" />
+            </div>
+        </div>
+        <div class="edit-actions">
+            <button class="btn-cancel" id="drawerCancel">CANCEL</button>
+            <button class="btn-confirm" id="drawerConfirm">CONFIRM</button>
+        </div>
+    </div>
+    <div class="edit-overlay" id="editOverlay"></div>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
