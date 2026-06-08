@@ -64,6 +64,11 @@ export async function createWeek(start_date) {
     return post('/weeks', { start_date, is_active: true })
 }
 
+export async function getWeekByDate(start_date) {
+    const weeks = await get(`/weeks?filters[start_date][$eq]=${start_date}&pagination[limit]=1`)
+    return weeks[0] || null
+}
+
 // ---- SESSIONS ----
 // Strapi v5: filter by documentId, use documentId for relations
 

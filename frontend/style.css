@@ -275,10 +275,6 @@ body {
     background: var(--grey-800);
 }
 
-/* done exactly as prescribed — dim row, green text */
-/* .set-row.completed {
-    opacity: 0.45;
-} */
 
 .set-row.completed .set-val {
     color: var(--success);
@@ -757,6 +753,83 @@ body {
     border-radius: 3px;
 }
 
+/* ---- COACH WEEK HISTORY ---- */
+.past-week-expand {
+    font-size: 14px;
+    color: var(--grey-500);
+    margin-left: auto;
+}
+
+.past-week-sessions {
+    background: var(--grey-800);
+    border-top: 1px solid var(--grey-700);
+    padding: 0;
+}
+
+.coach-session-block {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--grey-700);
+}
+
+.coach-session-block:last-child {
+    border-bottom: none;
+}
+
+.coach-session-day {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 8px;
+}
+
+.coach-exercise {
+    margin-bottom: 10px;
+}
+
+.coach-exercise:last-child {
+    margin-bottom: 0;
+}
+
+.coach-exercise-name {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--grey-200);
+    margin-bottom: 4px;
+}
+
+.coach-sets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.coach-set {
+    font-family: var(--font-display);
+    font-size: 13px;
+    padding: 3px 8px;
+    border-radius: 3px;
+}
+
+.coach-set--done {
+    background: var(--grey-700);
+    color: var(--success);
+}
+
+.coach-set--deviated {
+    background: var(--grey-700);
+    color: var(--accent);
+}
+
+.coach-set--missed {
+    background: var(--grey-800);
+    color: var(--grey-500);
+    text-decoration: line-through;
+}
+
+/* ---- PARSE TABS ---- */
 .parse-tabs {
     display: flex;
     gap: 0;
@@ -783,4 +856,8 @@ body {
 .parse-tab.active {
     background: var(--grey-700);
     color: var(--white);
+}
+
+.parse-tab:hover:not(.active) {
+    color: var(--grey-200);
 }

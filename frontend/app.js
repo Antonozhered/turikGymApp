@@ -1,5 +1,6 @@
 import { renderCoachShell, bindCoachEvents } from './coach.js'
 import {
+    getWeeks,
     getActiveWeek,
     getSessionsForWeek,
     getBlocksForSession,
@@ -17,13 +18,15 @@ import {
 // ---- STATE ----
 
 const state = {
-    mode: 'athlete',   // 'athlete' | 'coach'
-    activeDay: null,        // 'monday' | 'wednesday' | 'friday'
+    mode: 'athlete',
+    activeDay: null,
+    allWeeks: [],       // all weeks sorted desc
+    weekIndex: 0,        // 0 = most recent
     currentWeek: null,
-    sessions: {},          // { monday: sessionObj, ... }
-    blocks: {},          // { sessionId: [blocks] }
-    logs: {},          // { sessionId: [logs] }
-    drawerTarget: null         // { blockId, setIndex, prescribed, log }
+    sessions: {},
+    blocks: {},
+    logs: {},
+    drawerTarget: null
 }
 
 // ---- DOM REFS ----
@@ -31,6 +34,8 @@ const state = {
 const app = document.getElementById('app')
 const modeToggle = document.getElementById('modeToggle')
 const weekLabel = document.getElementById('weekLabel')
+const prevWeekBtn = document.getElementById('prevWeek')
+const nextWeekBtn = document.getElementById('nextWeek')
 const dayTabs = document.querySelectorAll('.day-tab')
 const editDrawer = document.getElementById('editDrawer')
 const editOverlay = document.getElementById('editOverlay')
@@ -41,45 +46,96 @@ const inputKg = editDrawer.querySelector('input[data-field="kg"]')
 const inputReps = editDrawer.querySelector('input[data-field="reps"]')
 const inputRpe = editDrawer.querySelector('input[data-field="rpe"]')
 
+// ---- WAKE STRAPI ----
+
+async function wakeStrapi() {
+    for (let i = 0; i < 5; i++) {
+        try {
+            const res = await fetch('https://favorable-eggs-2fd7a3264a.strapiapp.com/api/exercises')
+            if (res.ok) { console.log('Strapi awake'); return }
+        } catch (e) { }
+        console.log(`Strapi not ready, retrying... (${i + 1}/5)`)
+        await new Promise(r => setTimeout(r, 3000))
+    }
+    console.log('Strapi may still be waking, proceeding anyway')
+}
+
 // ---- INIT ----
 
 async function init() {
-    // determine today's day
     const dayMap = { 1: 'monday', 3: 'wednesday', 5: 'friday' }
     const todayDay = new Date().getDay()
     state.activeDay = dayMap[todayDay] || 'monday'
 
     setActiveTab(state.activeDay)
     bindEvents()
-    await loadWeek()
+
+    await wakeStrapi()
+    await loadAllWeeks()
 }
 
-// ---- LOAD DATA ----
+// ---- LOAD WEEKS LIST ----
 
-async function loadWeek() {
+async function loadAllWeeks() {
     app.innerHTML = renderLoading()
 
-    const week = await getActiveWeek()
+    const weeks = await getWeeks()
+    if (!weeks.length) {
+        app.innerHTML = renderNoWeek()
+        updateWeekNav()
+        return
+    }
+
+    state.allWeeks = weeks
+
+    // start on the active week if there is one, otherwise most recent
+    const activeIdx = weeks.findIndex(w => w.is_active ?? w.attributes?.is_active)
+    state.weekIndex = activeIdx >= 0 ? activeIdx : 0
+
+    await loadWeekAtIndex(state.weekIndex)
+}
+
+// ---- LOAD WEEK BY INDEX ----
+
+async function loadWeekAtIndex(index) {
+    app.innerHTML = renderLoading()
+
+    const week = state.allWeeks[index]
     if (!week) {
         app.innerHTML = renderNoWeek()
         return
     }
 
     state.currentWeek = week
+    state.weekIndex = index
 
-    // format week label
-    const d = new Date(week.attributes?.start_date || week.start_date)
+    // clear cached sessions/blocks/logs for fresh load
+    state.sessions = {}
+    state.blocks = {}
+    state.logs = {}
+
+    const d = new Date(week.start_date ?? week.attributes?.start_date)
     weekLabel.textContent = `Week of ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
 
-    // load sessions for this week
-    const sessions = await getSessionsForWeek(week.documentId)
+    updateWeekNav()
+
+    const sessions = await getSessionsForWeek(week.documentId ?? week.attributes?.documentId)
     sessions.forEach(s => {
-        const day = s.attributes?.day || s.day
+        const day = s.day ?? s.attributes?.day
         state.sessions[day] = s
     })
 
     await loadDay(state.activeDay)
 }
+
+function updateWeekNav() {
+    prevWeekBtn.disabled = state.weekIndex >= state.allWeeks.length - 1
+    nextWeekBtn.disabled = state.weekIndex <= 0
+    prevWeekBtn.style.opacity = prevWeekBtn.disabled ? '0.3' : '1'
+    nextWeekBtn.style.opacity = nextWeekBtn.disabled ? '0.3' : '1'
+}
+
+// ---- LOAD DAY ----
 
 async function loadDay(day) {
     app.innerHTML = renderLoading()
@@ -92,9 +148,8 @@ async function loadDay(day) {
     }
 
     const sessionId = session.id
-    const sessionDocId = session.documentId
+    const sessionDocId = session.documentId ?? session.attributes?.documentId
 
-    // fetch blocks and logs in parallel
     const [blocks, logs] = await Promise.all([
         getBlocksForSession(sessionDocId),
         getLogsForSession(sessionDocId)
@@ -118,7 +173,6 @@ function setActiveTab(day) {
 // ---- EVENTS ----
 
 function bindEvents() {
-    // day tabs
     dayTabs.forEach(tab => {
         tab.addEventListener('click', () => {
             setActiveTab(tab.dataset.day)
@@ -126,29 +180,35 @@ function bindEvents() {
         })
     })
 
-    // mode toggle
+    prevWeekBtn.addEventListener('click', () => {
+        if (state.weekIndex < state.allWeeks.length - 1) {
+            loadWeekAtIndex(state.weekIndex + 1)
+        }
+    })
+
+    nextWeekBtn.addEventListener('click', () => {
+        if (state.weekIndex > 0) {
+            loadWeekAtIndex(state.weekIndex - 1)
+        }
+    })
+
     modeToggle.addEventListener('click', () => {
         state.mode = state.mode === 'athlete' ? 'coach' : 'athlete'
         modeToggle.textContent = state.mode === 'coach' ? 'ATHLETE' : 'COACH'
         modeToggle.classList.toggle('active', state.mode === 'coach')
-        // coach view coming in next iteration
         if (state.mode === 'coach') {
             showCoachView()
         } else {
-            loadWeek()
+            loadAllWeeks()
         }
     })
 
-    // drawer cancel
     drawerCancel.addEventListener('click', closeDrawer)
     editOverlay.addEventListener('click', closeDrawer)
-
-    // drawer confirm
     drawerConfirm.addEventListener('click', confirmSet)
 }
 
 function bindSetInteractions() {
-    // tap checkbox = log as prescribed (fast path)
     document.querySelectorAll('.set-check').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation()
@@ -157,15 +217,12 @@ function bindSetInteractions() {
         })
     })
 
-    // tap row = open drawer to edit
     document.querySelectorAll('.set-row').forEach(row => {
         row.addEventListener('click', () => openDrawer(row))
     })
 }
 
 // ---- CHECKBOX FAST PATH ----
-// tap checkbox on a pending set → log as prescribed
-// tap checkbox on a done set → remove log (undo)
 
 async function handleCheckboxTap(row) {
     const blockId = parseInt(row.dataset.blockId)
@@ -179,12 +236,10 @@ async function handleCheckboxTap(row) {
     if (!session) return
 
     if (!logId) {
-        // optimistic update — mark row as done immediately
         updateRowOptimistic(row, pKg, pReps, null, false)
-        // save in background
         createLog(blockDocId, blockId, setIndex, pKg, pReps, null, null).catch(err => {
             console.error('Failed to save log:', err)
-            updateRowOptimistic(row, pKg, pReps, null, true) // revert on failure
+            updateRowOptimistic(row, pKg, pReps, null, true)
         })
     }
 }
@@ -200,7 +255,6 @@ function openDrawer(row) {
     const pKg = row.dataset.prescribedKg ? parseFloat(row.dataset.prescribedKg) : null
     const pReps = parseInt(row.dataset.prescribedReps)
 
-    // find existing log if any
     const session = state.sessions[state.activeDay]
     const sessionId = session?.id
     const logs = state.logs[sessionId] || []
@@ -210,20 +264,23 @@ function openDrawer(row) {
         return bId === blockId && idx === setIndex
     })
 
-    // find exercise name
     const blocks = state.blocks[sessionId] || []
     const block = blocks.find(b => b.id === blockId)
-    const exName = block?.attributes?.exercise?.data?.attributes?.name
-        || block?.exercise?.name
+    const exName = block?.exercise?.name
+        || block?.attributes?.exercise?.data?.attributes?.name
         || 'Exercise'
 
-    state.drawerTarget = { blockId, blockDocId, setIndex, logId: existingLog?.id || null, logDocId: existingLog?.documentId || logDocId, pKg, pReps }
+    state.drawerTarget = {
+        blockId, blockDocId, setIndex,
+        logId: existingLog?.id || null,
+        logDocId: existingLog?.documentId || logDocId,
+        pKg, pReps
+    }
 
     drawerTitle.textContent = `Set ${setIndex + 1} · ${exName}`
-
-    inputKg.value = existingLog ? (existingLog.attributes?.actual_kg ?? existingLog.actual_kg ?? pKg ?? '') : (pKg ?? '')
-    inputReps.value = existingLog ? (existingLog.attributes?.actual_reps ?? existingLog.actual_reps ?? pReps) : pReps
-    inputRpe.value = existingLog ? (existingLog.attributes?.rpe ?? existingLog.rpe ?? '') : ''
+    inputKg.value = existingLog ? (existingLog.actual_kg ?? existingLog.attributes?.actual_kg ?? pKg ?? '') : (pKg ?? '')
+    inputReps.value = existingLog ? (existingLog.actual_reps ?? existingLog.attributes?.actual_reps ?? pReps) : pReps
+    inputRpe.value = existingLog ? (existingLog.rpe ?? existingLog.attributes?.rpe ?? '') : ''
 
     editDrawer.classList.add('open')
     editOverlay.classList.add('visible')
@@ -243,23 +300,23 @@ async function confirmSet() {
     const reps = inputReps.value !== '' ? parseInt(inputReps.value) : pReps
     const rpe = inputRpe.value !== '' ? parseFloat(inputRpe.value) : null
 
-    // optimistic — close drawer and update row immediately
     const row = document.querySelector(`.set-row[data-block-id="${blockId}"][data-set-index="${setIndex}"]`)
     const deviated = (kg !== pKg) || (reps !== pReps)
     closeDrawer()
     if (row) updateRowOptimistic(row, kg, reps, rpe, false, deviated, pKg, pReps)
 
-    // save in background
     try {
         if (logDocId) {
             await updateLog(logDocId, kg, reps, rpe, null)
         } else {
             await createLog(blockDocId, blockId, setIndex, kg, reps, rpe, null)
         }
-        // update state.logs so drawer pre-fills correctly on next open
-        const sessionId = state.sessions[state.activeDay]?.id
-        if (sessionId) {
-            state.logs[sessionId] = await import('./api.js').then(m => m.getLogsForSession(sessionId))
+        // refresh logs in state so next drawer open pre-fills correctly
+        const sessionDocId = state.sessions[state.activeDay]?.documentId
+            ?? state.sessions[state.activeDay]?.attributes?.documentId
+        if (sessionDocId) {
+            const sessionId = state.sessions[state.activeDay]?.id
+            state.logs[sessionId] = await getLogsForSession(sessionDocId)
         }
     } catch (err) {
         console.error('Failed to save set:', err)
@@ -318,7 +375,7 @@ function showCoachView() {
         state.mode = 'athlete'
         modeToggle.textContent = 'COACH'
         modeToggle.classList.remove('active')
-        loadWeek()
+        loadAllWeeks()
     })
 }
 

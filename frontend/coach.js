@@ -7,6 +7,7 @@ import {
     getExercises,
     createExercise,
     createWeek,
+    getWeekByDate,
     createSession,
     createBlock
 } from './api.js'
@@ -268,7 +269,10 @@ async function saveWeekToStrapi(data) {
     monday.setDate(today.getDate() + (day === 1 ? 0 : diff))
     const startDate = monday.toISOString().split('T')[0]
 
-    const week = await createWeek(startDate)
+    let week = await getWeekByDate(startDate)
+    if (!week) {
+        week = await createWeek(startDate)
+    }
 
     // 3. create sessions + blocks for each day
     const days = ['monday', 'wednesday', 'friday']
@@ -277,7 +281,11 @@ async function saveWeekToStrapi(data) {
         const exercises = data.days?.[dayName] || []
         if (!exercises.length) continue
 
-        const session = await createSession(dayName, week.documentId)
+        const existingSessions = await getSessionsForWeek(week.documentId)
+        let session = existingSessions.find(s => (s.day ?? s.attributes?.day) === dayName)
+        if (!session) {
+            session = await createSession(dayName, week.documentId)
+        }
 
         for (let i = 0; i < exercises.length; i++) {
             const ex = exercises[i]
@@ -308,19 +316,117 @@ async function loadPastWeeks() {
             return
         }
 
-        container.innerHTML = weeks.map(w => {
-            const d = new Date(w.attributes?.start_date || w.start_date)
+        container.innerHTML = weeks.map((w, i) => {
+            const d = new Date(w.start_date ?? w.attributes?.start_date)
             const label = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-            const active = w.attributes?.is_active ?? w.is_active
+            const active = w.is_active ?? w.attributes?.is_active
+            const docId = w.documentId ?? w.attributes?.documentId
 
             return `
-        <div class="past-week-row ${active ? 'past-week-row--active' : ''}">
+        <div class="past-week-row ${active ? 'past-week-row--active' : ''}"
+             data-week-doc-id="${docId}"
+             style="cursor:pointer">
           <span class="past-week-date">${label}</span>
           ${active ? '<span class="past-week-badge">ACTIVE</span>' : ''}
-        </div>`
+          <span class="past-week-expand">▸</span>
+        </div>
+        <div class="past-week-sessions" id="week-sessions-${docId}" style="display:none"></div>`
         }).join('')
+
+        // bind click to expand
+        container.querySelectorAll('.past-week-row').forEach(row => {
+            row.addEventListener('click', () => toggleWeekSessions(row))
+        })
 
     } catch (err) {
         container.innerHTML = '<div class="empty-state" style="padding:20px">Failed to load.</div>'
+    }
+}
+
+async function toggleWeekSessions(row) {
+    const docId = row.dataset.weekDocId
+    const panel = document.getElementById(`week-sessions-${docId}`)
+    const arrow = row.querySelector('.past-week-expand')
+
+    if (panel.style.display === 'block') {
+        panel.style.display = 'none'
+        arrow.textContent = '▸'
+        return
+    }
+
+    panel.style.display = 'block'
+    arrow.textContent = '▾'
+    panel.innerHTML = '<div style="padding:12px;color:var(--grey-500);font-size:13px">Loading...</div>'
+
+    try {
+        const sessions = await getSessionsForWeek(docId)
+        if (!sessions.length) {
+            panel.innerHTML = '<div style="padding:12px;color:var(--grey-500);font-size:13px">No sessions.</div>'
+            return
+        }
+
+        const dayOrder = ['monday', 'wednesday', 'friday']
+        const dayLabels = { monday: 'MON', wednesday: 'WED', friday: 'FRI' }
+        const sorted = sessions.sort((a, b) => {
+            const ad = a.day ?? a.attributes?.day
+            const bd = b.day ?? b.attributes?.day
+            return dayOrder.indexOf(ad) - dayOrder.indexOf(bd)
+        })
+
+        let html = ''
+        for (const session of sorted) {
+            const day = session.day ?? session.attributes?.day
+            const sessionDocId = session.documentId ?? session.attributes?.documentId
+            const blocks = await getBlocksForSession(sessionDocId)
+            const logs = await getLogsForSession(sessionDocId)
+
+            // build log map: blockId -> setIndex -> log
+            const logMap = {}
+            logs.forEach(l => {
+                const bId = l._blockId
+                const idx = l.set_index ?? l.attributes?.set_index
+                if (!logMap[bId]) logMap[bId] = {}
+                logMap[bId][idx] = l
+            })
+
+            html += `<div class="coach-session-block">`
+            html += `<div class="coach-session-day">${dayLabels[day] || day}</div>`
+
+            blocks.forEach(block => {
+                const ex = block.exercise ?? block.attributes?.exercise?.data?.attributes ?? {}
+                const name = ex.name || 'Exercise'
+                const prescribed = block.prescribed_sets ?? block.attributes?.prescribed_sets ?? []
+                const blockLogs = logMap[block.id] || {}
+
+                html += `<div class="coach-exercise">`
+                html += `<div class="coach-exercise-name">${name}</div>`
+                html += `<div class="coach-sets">`
+
+                prescribed.forEach((p, i) => {
+                    const log = blockLogs[i]
+                    if (log) {
+                        const kg = log.actual_kg ?? log.attributes?.actual_kg
+                        const reps = log.actual_reps ?? log.attributes?.actual_reps
+                        const rpe = log.rpe ?? log.attributes?.rpe
+                        const deviated = (kg !== p.kg) || (reps !== p.reps)
+                        html += `<span class="coach-set ${deviated ? 'coach-set--deviated' : 'coach-set--done'}">`
+                        html += `${kg ?? '—'}×${reps}${rpe ? ` @${rpe}` : ''}`
+                        html += `</span>`
+                    } else {
+                        html += `<span class="coach-set coach-set--missed">${p.kg ?? '—'}×${p.reps}</span>`
+                    }
+                })
+
+                html += `</div></div>`
+            })
+
+            html += `</div>`
+        }
+
+        panel.innerHTML = html
+
+    } catch (err) {
+        console.error('Failed to load sessions:', err)
+        panel.innerHTML = '<div style="padding:12px;color:var(--grey-500)">Failed to load.</div>'
     }
 }
