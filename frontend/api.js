@@ -1,5 +1,3 @@
-import { ANTHROPIC_API_KEY } from './config.js'
-
 const BASE_URL = 'https://favorable-eggs-2fd7a3264a.strapiapp.com/api'
 
 // ---- HELPERS ----
@@ -17,7 +15,11 @@ async function post(path, data) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data })
     })
-    if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`)
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('POST error:', JSON.stringify(err))
+        throw new Error(`POST ${path} failed: ${res.status}`)
+    }
     const json = await res.json()
     return json.data
 }
@@ -28,7 +30,11 @@ async function put(path, data) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data })
     })
-    if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`)
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        console.error('PUT error:', JSON.stringify(err))
+        throw new Error(`PUT ${path} failed: ${res.status}`)
+    }
     const json = await res.json()
     return json.data
 }
@@ -55,76 +61,92 @@ export async function getActiveWeek() {
 }
 
 export async function createWeek(start_date) {
-    // deactivate all existing weeks first
-    const existing = await get('/weeks?filters[is_active][$eq]=true&pagination[limit]=100')
-    await Promise.all(existing.map(w => put(`/weeks/${w.id}`, { is_active: false })))
     return post('/weeks', { start_date, is_active: true })
 }
 
 // ---- SESSIONS ----
+// Strapi v5: filter by documentId, use documentId for relations
 
-export async function getSessionsForWeek(weekId) {
-    return get(`/sessions?filters[week][id][$eq]=${weekId}&populate=week`)
+export async function getSessionsForWeek(weekDocumentId) {
+    return get(`/gym-sessions?filters[week][documentId][$eq]=${weekDocumentId}&populate=week`)
 }
 
-export async function createSession(day, weekId) {
-    return post('/sessions', { day, week: weekId })
+export async function createSession(day, weekDocumentId) {
+    const result = await post('/gym-sessions', {
+        day,
+        week: { connect: [{ documentId: weekDocumentId }] }
+    })
+    console.log('created session:', JSON.stringify(result))
+    return result
 }
 
 // ---- EXERCISE BLOCKS ----
 
-export async function getBlocksForSession(sessionId) {
+export async function getBlocksForSession(sessionDocumentId) {
     return get(
-        `/exercise-blocks?filters[session][id][$eq]=${sessionId}` +
+        `/exercise-blocks?filters[gym_session][documentId][$eq]=${sessionDocumentId}` +
         `&populate[exercise]=true` +
         `&sort=order:asc` +
         `&pagination[limit]=100`
     )
 }
 
-export async function createBlock(sessionId, exerciseId, order, superset_group, prescribed_sets, notes) {
-    return post('/exercise-blocks', {
-        session: sessionId,
-        exercise: exerciseId,
+export async function createBlock(sessionDocumentId, exerciseDocumentId, order, superset_group, prescribed_sets, notes) {
+    const result = await post('/exercise-blocks', {
+        gym_session: { connect: [{ documentId: sessionDocumentId }] },
+        exercise: { connect: [{ documentId: exerciseDocumentId }] },
         order,
         superset_group: superset_group || null,
         prescribed_sets,
         notes: notes || null
     })
+    console.log('created block:', JSON.stringify(result))
+    return result
 }
 
 // ---- SET LOGS ----
 
-export async function getLogsForBlock(blockId) {
-    return get(`/set-logs?filters[exercise_block][id][$eq]=${blockId}&sort=set_index:asc&pagination[limit]=100`)
-}
-
-export async function getLogsForSession(sessionId) {
-    // get all logs for all blocks in a session in one query
-    return get(
-        `/set-logs?filters[exercise_block][session][id][$eq]=${sessionId}` +
-        `&populate[exercise_block]=true` +
-        `&sort=set_index:asc` +
-        `&pagination[limit]=500`
+export async function getLogsForSession(sessionDocumentId) {
+    const blocks = await get(
+        `/exercise-blocks?filters[gym_session][documentId][$eq]=${sessionDocumentId}&pagination[limit]=100`
     )
+    if (!blocks.length) return []
+
+    const allLogs = await Promise.all(
+        blocks.map(b =>
+            get(`/set-logs?filters[exercise_block][documentId][$eq]=${b.documentId}&sort=set_index:asc&pagination[limit]=100`)
+                .catch(() => [])
+        )
+    )
+
+    // tag each log with its block numeric id for render.js matching
+    const tagged = []
+    allLogs.forEach((blockLogs, i) => {
+        blockLogs.forEach(log => {
+            tagged.push({ ...log, _blockId: blocks[i].id })
+        })
+    })
+    return tagged
 }
 
-export async function createLog(blockId, set_index, actual_kg, actual_reps, rpe, note) {
-    return post('/set-logs', {
-        exercise_block: blockId,
+export async function createLog(blockDocumentId, blockNumericId, set_index, actual_kg, actual_reps, rpe, notes) {
+    const result = await post('/set-logs', {
+        exercise_block: { connect: [{ documentId: blockDocumentId }] },
         set_index,
         actual_kg: actual_kg ?? null,
         actual_reps,
         rpe: rpe ?? null,
-        note: note || null
+        notes: notes || null
     })
+    // tag with numeric blockId so render.js can match it
+    return { ...result, _blockId: blockNumericId }
 }
 
-export async function updateLog(logId, actual_kg, actual_reps, rpe, note) {
-    return put(`/set-logs/${logId}`, {
+export async function updateLog(logDocumentId, actual_kg, actual_reps, rpe, notes) {
+    return put(`/set-logs/${logDocumentId}`, {
         actual_kg: actual_kg ?? null,
         actual_reps,
         rpe: rpe ?? null,
-        note: note || null
+        notes: notes || null
     })
 }

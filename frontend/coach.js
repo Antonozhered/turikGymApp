@@ -26,16 +26,17 @@ export function renderCoachShell() {
 
         <!-- PASTE AREA (hidden by default) -->
         <div class="paste-area" id="pasteArea" style="display:none">
-          <label class="paste-label">Paste the program</label>
+          <div class="parse-tabs">
+            <button class="parse-tab active" data-tab="text">PROGRAM TEXT</button>
+            <button class="parse-tab" data-tab="json">RAW JSON</button>
+          </div>
           <textarea
             id="programInput"
             class="paste-input"
             placeholder="Понедельник:&#10;Присед:&#10;20х12х2&#10;..."
             rows="10"
           ></textarea>
-          <button id="btnClearCache" style="font-size:11px;color:var(--grey-500);background:none;border:none;cursor:pointer;margin-bottom:8px">
-             clear parse cache
-            </button>
+          <button id="btnClearCache" style="font-size:11px;color:var(--grey-500);background:none;border:none;cursor:pointer;margin-bottom:8px">clear parse cache</button>
           <div class="paste-actions">
             <button class="btn-cancel" id="btnCancelPaste">CANCEL</button>
             <button class="btn-confirm" id="btnParse">PARSE →</button>
@@ -71,7 +72,8 @@ export function renderCoachShell() {
 
 // ---- BIND COACH EVENTS ----
 
-let parsedData = null  // holds parsed JSON between parse and confirm steps
+let parsedData = null
+let activeParseTab = 'text'
 
 export function bindCoachEvents(onWeekSaved) {
     document.getElementById('btnAddWeek').addEventListener('click', () => {
@@ -80,22 +82,40 @@ export function bindCoachEvents(onWeekSaved) {
         document.getElementById('programInput').focus()
     })
 
+    // tab switching
+    document.querySelectorAll('.parse-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            activeParseTab = tab.dataset.tab
+            document.querySelectorAll('.parse-tab').forEach(t => t.classList.remove('active'))
+            tab.classList.add('active')
+            const input = document.getElementById('programInput')
+            const btn = document.getElementById('btnParse')
+            if (activeParseTab === 'json') {
+                input.placeholder = '{ "days": { "monday": [...] } }'
+                btn.textContent = 'USE JSON →'
+            } else {
+                input.placeholder = 'Понедельник: Присед: 20х12х2...'
+                btn.textContent = 'PARSE →'
+            }
+        })
+    })
+
+    // clear cache
+    document.getElementById('btnClearCache').addEventListener('click', () => {
+        localStorage.removeItem('turik_last_parse')
+        document.getElementById('btnClearCache').textContent = 'cache cleared'
+        setTimeout(() => { document.getElementById('btnClearCache').textContent = 'clear parse cache' }, 2000)
+    })
+
     document.getElementById('btnCancelPaste').addEventListener('click', () => {
         document.getElementById('pasteArea').style.display = 'none'
         document.getElementById('btnAddWeek').style.display = 'block'
         document.getElementById('programInput').value = ''
     })
-    
-    document.getElementById('btnClearCache').addEventListener('click', () => {
-        localStorage.removeItem('turik_last_parse')
-        document.getElementById('btnClearCache').textContent = 'cache cleared'
-    })
 
     document.getElementById('btnParse').addEventListener('click', handleParse)
     document.getElementById('btnCancelPreview').addEventListener('click', handleCancelPreview)
     document.getElementById('btnConfirmWeek').addEventListener('click', () => handleConfirmWeek(onWeekSaved))
-
-    
 
     loadPastWeeks()
 }
@@ -105,12 +125,22 @@ export function bindCoachEvents(onWeekSaved) {
 async function handleParse() {
     const btn = document.getElementById('btnParse')
     const input = document.getElementById('programInput').value.trim()
-
     if (!input) return
 
+    if (activeParseTab === 'json') {
+        try {
+            parsedData = JSON.parse(input)
+            showPreview(parsedData)
+        } catch (err) {
+            btn.textContent = 'INVALID JSON'
+            setTimeout(() => { btn.textContent = 'USE JSON →' }, 2000)
+        }
+        return
+    }
+
+    // text tab — use AI
     btn.textContent = 'PARSING...'
     btn.disabled = true
-
     try {
         parsedData = await parseProgram(input)
         showPreview(parsedData)
@@ -120,7 +150,6 @@ async function handleParse() {
         btn.disabled = false
         return
     }
-
     btn.textContent = 'PARSE →'
     btn.disabled = false
 }
@@ -218,8 +247,8 @@ async function saveWeekToStrapi(data) {
     const existingExercises = await getExercises()
     const exerciseCache = {}
     existingExercises.forEach(e => {
-        const name = (e.attributes?.name || e.name || '').toLowerCase().trim()
-        exerciseCache[name] = e.id
+        const name = (e.attributes?.name || e.name || e.name || '').toLowerCase().trim()
+        exerciseCache[name] = e.documentId || e.attributes?.documentId
     })
 
     async function findOrCreateExercise(ex) {
@@ -227,8 +256,8 @@ async function saveWeekToStrapi(data) {
         if (exerciseCache[key]) return exerciseCache[key]
 
         const created = await createExercise(ex.name, ex.category, ex.movement)
-        exerciseCache[key] = created.id
-        return created.id
+        exerciseCache[key] = created.documentId
+        return created.documentId
     }
 
     // 2. create the week (deactivates old ones automatically)
@@ -248,14 +277,14 @@ async function saveWeekToStrapi(data) {
         const exercises = data.days?.[dayName] || []
         if (!exercises.length) continue
 
-        const session = await createSession(dayName, week.id)
+        const session = await createSession(dayName, week.documentId)
 
         for (let i = 0; i < exercises.length; i++) {
             const ex = exercises[i]
             const exId = await findOrCreateExercise(ex)
 
             await createBlock(
-                session.id,
+                session.documentId,
                 exId,
                 i,
                 ex.superset_group || null,

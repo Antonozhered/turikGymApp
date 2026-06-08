@@ -276,9 +276,9 @@ body {
 }
 
 /* done exactly as prescribed — dim row, green text */
-.set-row.completed {
+/* .set-row.completed {
     opacity: 0.45;
-}
+} */
 
 .set-row.completed .set-val {
     color: var(--success);
@@ -755,4 +755,32 @@ body {
     color: var(--black);
     padding: 3px 8px;
     border-radius: 3px;
+}
+
+.parse-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 10px;
+    border: 1px solid var(--grey-700);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.parse-tab {
+    flex: 1;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    background: none;
+    border: none;
+    color: var(--grey-500);
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.parse-tab.active {
+    background: var(--grey-700);
+    color: var(--white);
 }

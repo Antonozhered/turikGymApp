@@ -29,7 +29,7 @@ function formatKg(kg) {
 // log exists + matches prescribed = completed
 // log exists + differs = deviated
 
-export function renderSetRow(setIndex, prescribed, log, blockId) {
+export function renderSetRow(setIndex, prescribed, log, blockId, blockDocId) {
     const pKg = prescribed.kg
     const pReps = prescribed.reps
 
@@ -73,12 +73,15 @@ export function renderSetRow(setIndex, prescribed, log, blockId) {
     }
 
     const logId = log ? log.id : ''
+    const logDocId = log ? (log.documentId ?? '') : ''
 
     return `
     <div class="set-row ${state}"
          data-set-index="${setIndex}"
          data-block-id="${blockId}"
+         data-block-doc-id="${blockDocId ?? ''}"
          data-log-id="${logId}"
+         data-log-doc-id="${logDocId}"
          data-prescribed-kg="${pKg ?? ''}"
          data-prescribed-reps="${pReps}">
       <span class="set-num">${setIndex + 1}</span>
@@ -110,15 +113,17 @@ export function renderExerciseBlock(block, logs) {
         const idx = l.attributes?.set_index ?? l.set_index
         logMap[idx] = {
             id: l.id,
+            documentId: l.documentId,
             actual_kg: l.attributes?.actual_kg ?? l.actual_kg,
             actual_reps: l.attributes?.actual_reps ?? l.actual_reps,
             rpe: l.attributes?.rpe ?? l.rpe,
-            note: l.attributes?.note ?? l.note
+            notes: l.attributes?.notes ?? l.notes
         }
     })
 
+    const blockDocId = block.documentId || block.attributes?.documentId || ''
     const setsHtml = prescribed.map((p, i) =>
-        renderSetRow(i, p, logMap[i] || null, blockId)
+        renderSetRow(i, p, logMap[i] || null, blockId, blockDocId)
     ).join('')
 
     const subLabel = category === 'sbd_main' ? 'Main lift'
@@ -170,7 +175,7 @@ export function renderSupersetGroup(blocks, allLogs) {
     const setRowsHtml = prescribed.map((p, i) => {
         return blocks.map(block => {
             const blockLogs = allLogs.filter(l => {
-                const bId = l.attributes?.exercise_block?.data?.id ?? l.exercise_block
+                const bId = l._blockId ?? l.attributes?.exercise_block?.data?.id ?? l.exercise_block
                 return bId === block.id
             })
             const logMap = {}
@@ -184,7 +189,8 @@ export function renderSupersetGroup(blocks, allLogs) {
                 }
             })
             const blockPrescribed = block.attributes?.prescribed_sets || block.prescribed_sets || []
-            return renderSetRow(i, blockPrescribed[i] || p, logMap[i] || null, block.id)
+            const bDocId = block.documentId || block.attributes?.documentId || ''
+            return renderSetRow(i, blockPrescribed[i] || p, logMap[i] || null, block.id, bDocId)
         }).join('')
     }).join('')
 
@@ -224,7 +230,7 @@ export function renderSession(blocks, allLogs) {
     return ordered.map(item => {
         if (item.type === 'solo') {
             const blockLogs = allLogs.filter(l => {
-                const bId = l.attributes?.exercise_block?.data?.id ?? l.exercise_block
+                const bId = l._blockId ?? l.attributes?.exercise_block?.data?.id ?? l.exercise_block
                 return bId === item.block.id
             })
             return renderExerciseBlock(item.block, blockLogs)
