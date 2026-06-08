@@ -12,10 +12,10 @@ jobs:
 
       - name: Inject API key
         run: |
-          echo "export const ANTHROPIC_API_KEY = '${{ secrets.ANTHROPIC_API_KEY }}'" > docs/config.js
+          echo "export const ANTHROPIC_API_KEY = '${{ secrets.ANTHROPIC_API_KEY }}'" > frontend/config.js
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs
+          publish_dir: ./frontend
